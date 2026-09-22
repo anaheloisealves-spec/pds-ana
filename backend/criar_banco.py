@@ -1,58 +1,45 @@
 import sqlite3
 
-BANCO = "petshop.db"
+def criar_banco():
+    conexao = sqlite3.connect("banco.db")
+    cursor = conexao.cursor()
 
-conexao = sqlite3.connect(BANCO)
-cursor = conexao.cursor()
 
-# Apaga as tabelas antigas para o script poder ser rodado de novo
-cursor.execute("DROP TABLE IF EXISTS pets")
-cursor.execute("DROP TABLE IF EXISTS donos")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS marcas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            pais TEXT NOT NULL
+        )
+    """)
 
-cursor.execute("""
-CREATE TABLE donos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    telefone TEXT NOT NULL
-)
-""")
 
-cursor.execute("""
-CREATE TABLE pets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    especie TEXT NOT NULL,
-    idade INTEGER NOT NULL,
-    dono_id INTEGER NOT NULL,
-    FOREIGN KEY (dono_id) REFERENCES donos (id)
-)
-""")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS miniaturas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            modelo TEXT NOT NULL,
+            escala TEXT NOT NULL,
+            preco REAL NOT NULL,
+            marca_id INTEGER NOT NULL,
+            FOREIGN KEY (marca_id) REFERENCES marcas(id)
+        )
+    """)
 
-donos = [
-    ("Ana Paula Ribeiro", "45999110001"),
-    ("Bruno Cardoso", "45999110002"),
-    ("Carla Meneghel", "45999110003")
-]
 
-for dono in donos:
-    cursor.execute("INSERT INTO donos (nome, telefone) VALUES (?, ?)", dono)
+    cursor.execute("INSERT INTO marcas (nome, pais) VALUES ('Hot Wheels', 'EUA')")
+    cursor.execute("INSERT INTO marcas (nome, pais) VALUES ('Kyosho', 'Japão')")
 
-pets = [
-    ("Rex", "cachorro", 4, 1),
-    ("Mimi", "gato", 2, 1),
-    ("Thor", "cachorro", 7, 2),
-    ("Nina", "gato", 1, 3),
-    ("Pingo", "passaro", 3, 3)
-]
+    cursor.execute("""
+        INSERT INTO miniaturas (modelo, escala, preco, marca_id) 
+        VALUES ('Nissan GT-R R35', '1:64', 29.90, 1)
+    """)
+    cursor.execute("""
+        INSERT INTO miniaturas (modelo, escala, preco, marca_id) 
+        VALUES ('Ferrari F40', '1:18', 450.00, 2)
+    """)
 
-for pet in pets:
-    cursor.execute(
-        "INSERT INTO pets (nome, especie, idade, dono_id) VALUES (?, ?, ?, ?)",
-        pet
-    )
+    conexao.commit()
+    conexao.close()
 
-conexao.commit()
-conexao.close()
-
-print("Banco criado com sucesso.")
-print(f"Foram inseridos {len(donos)} donos e {len(pets)} pets.")
+if __name__ == "__main__":
+    criar_banco()
