@@ -30,3 +30,29 @@ Content-Type: application/json
 
 ###
 DELETE http://localhost:5000/miniaturas/1
+
+###
+GET http://localhost:5000/marcas/1
+
+###
+GET http://localhost:5000/marcas/1?miniaturas=true
+
+###
+GET http://localhost:5000/marcas/1/miniaturas
+
+###
+GET http://localhost:5000/marcas/3/miniaturas
+
+###
+GET http://localhost:5000/marcas/999/miniaturas
+
+###
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "Lamborghini Countach",
+  "escala": "1:64",
+  "preco": 39.90,
+  "marca_id": 999
+}
