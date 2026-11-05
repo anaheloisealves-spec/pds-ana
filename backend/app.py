@@ -1,155 +1,189 @@
 from flask import Flask, jsonify, request
-import sqlite3
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-def conectar():
-    return sqlite3.connect("banco.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///banco.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+
+class Marca(db.Model):
+    __tablename__ = "marcas"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    pais = db.Column(db.String(100), nullable=False)
+
+    miniaturas = db.relationship("Miniatura", backref="marca")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "pais": self.pais
+        }
+
+
+class Miniatura(db.Model):
+    __tablename__ = "miniaturas"
+
+    id = db.Column(db.Integer, primary_key=True)
+    modelo = db.Column(db.String(100), nullable=False)
+    escala = db.Column(db.String(20), nullable=False)
+    preco = db.Column(db.Float, nullable=False)
+    marca_id = db.Column(
+        db.Integer,
+        db.ForeignKey("marcas.id"),
+        nullable=False
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "modelo": self.modelo,
+            "escala": self.escala,
+            "preco": self.preco,
+            "marca_id": self.marca_id,
+            "marca_nome": self.marca.nome
+        }
+
 
 @app.route("/miniaturas", methods=["GET"])
 def listar_miniaturas():
     marca_id = request.args.get("marca_id")
-    
-    conexao = conectar()
-    cursor = conexao.cursor()
-    
-    query = """
-        SELECT miniaturas.id, miniaturas.modelo, miniaturas.escala, 
-               miniaturas.preco, miniaturas.marca_id, marcas.nome
-        FROM miniaturas
-        INNER JOIN marcas ON miniaturas.marca_id = marcas.id
-    """
-    
+
     if marca_id is not None:
-        query += " WHERE miniaturas.marca_id = ?"
-        cursor.execute(query, (marca_id,))
+        try:
+            marca_id = int(marca_id)
+        except (TypeError, ValueError):
+            return jsonify({"erro": "marca_id invalido"}), 400
+
+        miniaturas = Miniatura.query.filter_by(marca_id=marca_id).all()
     else:
-        cursor.execute(query)
-        
-    linhas = cursor.fetchall()
-    conexao.close()
-    
-    miniaturas = []
-    for linha in linhas:
-        miniaturas.append({
-            "id": linha[0],
-            "modelo": linha[1],
-            "escala": linha[2],
-            "preco": linha[3],
-            "marca_id": linha[4],
-            "marca_nome": linha[5]
-        })
-        
-    return jsonify(miniaturas), 200
+        miniaturas = Miniatura.query.all()
+
+    return jsonify([miniatura.to_dict() for miniatura in miniaturas]), 200
+
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["GET"])
 def buscar_miniatura(miniatura_id):
-    conexao = conectar()
-    cursor = conexao.cursor()
-    
-    cursor.execute("""
-        SELECT miniaturas.id, miniaturas.modelo, miniaturas.escala, 
-               miniaturas.preco, miniaturas.marca_id, marcas.nome
-        FROM miniaturas
-        INNER JOIN marcas ON miniaturas.marca_id = marcas.id
-        WHERE miniaturas.id = ?
-    """, (miniatura_id,))
-    
-    linha = cursor.fetchone()
-    conexao.close()
-    
-    if linha is None:
+    miniatura = db.session.get(Miniatura, miniatura_id)
+
+    if miniatura is None:
         return jsonify({"erro": "Miniatura nao encontrada"}), 404
-        
-    miniatura = {
-        "id": linha[0],
-        "modelo": linha[1],
-        "escala": linha[2],
-        "preco": linha[3],
-        "marca_id": linha[4],
-        "marca_nome": linha[5]
-    }
-    
-    return jsonify(miniatura), 200
+
+    return jsonify(miniatura.to_dict()), 200
+
 
 @app.route("/miniaturas", methods=["POST"])
 def cadastrar_miniatura():
-    dados = request.get_json()
-    
+    dados = request.get_json(silent=True) or {}
+
     campos_obrigatorios = ["modelo", "escala", "preco", "marca_id"]
-    if not dados or any(campo not in dados for campo in campos_obrigatorios):
+    if any(campo not in dados for campo in campos_obrigatorios):
         return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
-        
-    conexao = conectar()
-    cursor = conexao.cursor()
-    
-    cursor.execute(
-        "INSERT INTO miniaturas (modelo, escala, preco, marca_id) VALUES (?, ?, ?, ?)",
-        (dados["modelo"], dados["escala"], dados["preco"], dados["marca_id"])
+
+    marca = db.session.get(Marca, dados["marca_id"])
+
+    if marca is None:
+        return jsonify({"erro": "Marca nao encontrada"}), 404
+
+    nova_miniatura = Miniatura(
+        modelo=dados["modelo"],
+        escala=dados["escala"],
+        preco=dados["preco"],
+        marca_id=marca.id
     )
-    conexao.commit()
-    
-    novo_id = cursor.lastrowid
-    conexao.close()
-    
+
+    db.session.add(nova_miniatura)
+    db.session.commit()
+
     resposta = {
-        "id": novo_id,
-        "modelo": dados["modelo"],
-        "escala": dados["escala"],
-        "preco": dados["preco"],
-        "marca_id": dados["marca_id"]
+        "id": nova_miniatura.id,
+        "modelo": nova_miniatura.modelo,
+        "escala": nova_miniatura.escala,
+        "preco": nova_miniatura.preco,
+        "marca_id": nova_miniatura.marca_id
     }
-    
+
     return jsonify(resposta), 201
+
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["PUT"])
 def atualizar_miniatura(miniatura_id):
-    dados = request.get_json()
-    
+    dados = request.get_json(silent=True) or {}
+
     campos_obrigatorios = ["modelo", "escala", "preco", "marca_id"]
-    if not dados or any(campo not in dados for campo in campos_obrigatorios):
+    if any(campo not in dados for campo in campos_obrigatorios):
         return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
-        
-    conexao = conectar()
-    cursor = conexao.cursor()
-    
-    cursor.execute(
-        "UPDATE miniaturas SET modelo = ?, escala = ?, preco = ?, marca_id = ? WHERE id = ?",
-        (dados["modelo"], dados["escala"], dados["preco"], dados["marca_id"], miniatura_id)
-    )
-    conexao.commit()
-    
-    if cursor.rowcount == 0:
-        conexao.close()
+
+    miniatura = db.session.get(Miniatura, miniatura_id)
+
+    if miniatura is None:
         return jsonify({"erro": "Miniatura nao encontrada"}), 404
-        
-    conexao.close()
-    
+
+    marca = db.session.get(Marca, dados["marca_id"])
+
+    if marca is None:
+        return jsonify({"erro": "Marca nao encontrada"}), 404
+
+    miniatura.modelo = dados["modelo"]
+    miniatura.escala = dados["escala"]
+    miniatura.preco = dados["preco"]
+    miniatura.marca_id = marca.id
+
+    db.session.commit()
+
     resposta = {
-        "id": miniatura_id,
-        "modelo": dados["modelo"],
-        "escala": dados["escala"],
-        "preco": dados["preco"],
-        "marca_id": dados["marca_id"]
+        "id": miniatura.id,
+        "modelo": miniatura.modelo,
+        "escala": miniatura.escala,
+        "preco": miniatura.preco,
+        "marca_id": miniatura.marca_id
     }
-    
+
     return jsonify(resposta), 200
+
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["DELETE"])
 def deletar_miniatura(miniatura_id):
-    conexao = conectar()
-    cursor = conexao.cursor()
-    
-    cursor.execute("DELETE FROM miniaturas WHERE id = ?", (miniatura_id,))
-    conexao.commit()
-    
-    if cursor.rowcount == 0:
-        conexao.close()
+    miniatura = db.session.get(Miniatura, miniatura_id)
+
+    if miniatura is None:
         return jsonify({"erro": "Miniatura nao encontrada"}), 404
-        
-    conexao.close()
-    
+
+    db.session.delete(miniatura)
+    db.session.commit()
+
     return jsonify({"mensagem": "Miniatura removida com sucesso"}), 200
+
+
+@app.route("/marcas/<int:marca_id>", methods=["GET"])
+def buscar_marca(marca_id):
+    marca = db.session.get(Marca, marca_id)
+
+    if marca is None:
+        return jsonify({"erro": "Marca nao encontrada"}), 404
+
+    dados = marca.to_dict()
+
+    if request.args.get("miniaturas", "").lower() in ("1", "true", "sim"):
+        dados["miniaturas"] = [miniatura.to_dict() for miniatura in marca.miniaturas]
+
+    return jsonify(dados), 200
+
+
+@app.route("/marcas/<int:marca_id>/miniaturas", methods=["GET"])
+def listar_miniaturas_da_marca(marca_id):
+    marca = db.session.get(Marca, marca_id)
+
+    if marca is None:
+        return jsonify({"erro": "Marca nao encontrada"}), 404
+
+    return jsonify([miniatura.to_dict() for miniatura in marca.miniaturas]), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)
