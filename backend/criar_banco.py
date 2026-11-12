@@ -1,45 +1,32 @@
-import sqlite3
+from app import app, db, Marca, Miniatura
 
-def criar_banco():
-    conexao = sqlite3.connect("banco.db")
-    cursor = conexao.cursor()
+with app.app_context():
+    # cria todas as tabelas dos modelos, se ainda nao existirem
+    db.create_all()
 
+    # so popula se o banco estiver vazio
+    if Marca.query.first() is None:
+        hot_wheels = Marca(nome="Hot Wheels", pais="EUA")
+        kyosho = Marca(nome="Kyosho", pais="Japão")
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS marcas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            pais TEXT NOT NULL
-        )
-    """)
+        db.session.add(hot_wheels)
+        db.session.add(kyosho)
+        db.session.commit()
 
+        db.session.add(Miniatura(
+            modelo="Nissan GT-R R35",
+            escala="1:64",
+            preco=29.90,
+            marca_id=hot_wheels.id
+        ))
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS miniaturas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            modelo TEXT NOT NULL,
-            escala TEXT NOT NULL,
-            preco REAL NOT NULL,
-            marca_id INTEGER NOT NULL,
-            FOREIGN KEY (marca_id) REFERENCES marcas(id)
-        )
-    """)
+        db.session.add(Miniatura(
+            modelo="Ferrari F40",
+            escala="1:18",
+            preco=450.00,
+            marca_id=kyosho.id
+        ))
 
+        db.session.commit()
 
-    cursor.execute("INSERT INTO marcas (nome, pais) VALUES ('Hot Wheels', 'EUA')")
-    cursor.execute("INSERT INTO marcas (nome, pais) VALUES ('Kyosho', 'Japão')")
-
-    cursor.execute("""
-        INSERT INTO miniaturas (modelo, escala, preco, marca_id) 
-        VALUES ('Nissan GT-R R35', '1:64', 29.90, 1)
-    """)
-    cursor.execute("""
-        INSERT INTO miniaturas (modelo, escala, preco, marca_id) 
-        VALUES ('Ferrari F40', '1:18', 450.00, 2)
-    """)
-
-    conexao.commit()
-    conexao.close()
-
-if __name__ == "__main__":
-    criar_banco()
+    print("Banco criado com sucesso.")
