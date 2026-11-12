@@ -30,3 +30,4 @@ with app.app_context():
         db.session.commit()
 
     print("Banco criado com sucesso.")
+    
