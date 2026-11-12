@@ -61,3 +61,77 @@ Content-Type: application/json
   "preco": 39.90,
   "marca_id": 999
 }
+
+###
+# ===== Aula 05: dados que DEVEM falhar (400 com lista de erros) =====
+
+# modelo vazio
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "   ",
+  "escala": "1:64",
+  "preco": 29.90,
+  "marca_id": 1
+}
+
+###
+# preco em texto
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "Bidu",
+  "escala": "1:64",
+  "preco": "vinte e nove",
+  "marca_id": 1
+}
+
+###
+# preco negativo
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "Bidu",
+  "escala": "1:64",
+  "preco": -5,
+  "marca_id": 1
+}
+
+###
+# marca_id inexistente
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "Bidu",
+  "escala": "1:64",
+  "preco": 10,
+  "marca_id": 999
+}
+
+###
+# tudo errado de uma vez: a resposta traz os erros juntos
+POST http://localhost:5000/miniaturas
+Content-Type: application/json
+
+{
+  "modelo": "",
+  "escala": "1:64",
+  "preco": "dez",
+  "marca_id": "um"
+}
+
+###
+# PUT com preco negativo
+PUT http://localhost:5000/miniaturas/1
+Content-Type: application/json
+
+{
+  "modelo": "Nissan GT-R R35",
+  "escala": "1:64",
+  "preco": -1,
+  "marca_id": 1
+}

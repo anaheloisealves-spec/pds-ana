@@ -50,6 +50,37 @@ class Miniatura(db.Model):
         }
 
 
+def validar_miniatura(dados):
+    """Devolve a lista de problemas dos dados. Lista vazia = tudo certo."""
+    if not isinstance(dados, dict):
+        return ["O corpo da requisicao precisa ser um JSON de objeto"]
+
+    erros = []
+
+    modelo = dados.get("modelo")
+    if not isinstance(modelo, str) or modelo.strip() == "":
+        erros.append("O campo modelo e obrigatorio e nao pode ser vazio")
+
+    escala = dados.get("escala")
+    if not isinstance(escala, str) or escala.strip() == "":
+        erros.append("O campo escala e obrigatorio e nao pode ser vazio")
+
+    preco = dados.get("preco")
+    # bool conta como int em Python: True viraria preco 1, entao e barrado antes
+    if isinstance(preco, bool) or not isinstance(preco, (int, float)):
+        erros.append("O campo preco deve ser um numero")
+    elif preco < 0:
+        erros.append("O campo preco nao pode ser negativo")
+
+    marca_id = dados.get("marca_id")
+    if isinstance(marca_id, bool) or not isinstance(marca_id, int):
+        erros.append("O campo marca_id deve ser um numero inteiro")
+    elif db.session.get(Marca, marca_id) is None:
+        erros.append("Nao existe marca com esse marca_id")
+
+    return erros
+
+
 @app.route("/miniaturas", methods=["GET"])
 def listar_miniaturas():
     marca_id = request.args.get("marca_id")
@@ -79,22 +110,17 @@ def buscar_miniatura(miniatura_id):
 
 @app.route("/miniaturas", methods=["POST"])
 def cadastrar_miniatura():
-    dados = request.get_json(silent=True) or {}
+    dados = request.get_json(silent=True)
 
-    campos_obrigatorios = ["modelo", "escala", "preco", "marca_id"]
-    if any(campo not in dados for campo in campos_obrigatorios):
-        return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
-
-    marca = db.session.get(Marca, dados["marca_id"])
-
-    if marca is None:
-        return jsonify({"erro": "Marca nao encontrada"}), 404
+    erros = validar_miniatura(dados)
+    if erros:
+        return jsonify({"erros": erros}), 400
 
     nova_miniatura = Miniatura(
         modelo=dados["modelo"],
         escala=dados["escala"],
         preco=dados["preco"],
-        marca_id=marca.id
+        marca_id=dados["marca_id"]
     )
 
     db.session.add(nova_miniatura)
@@ -105,26 +131,21 @@ def cadastrar_miniatura():
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["PUT"])
 def atualizar_miniatura(miniatura_id):
-    dados = request.get_json(silent=True) or {}
-
-    campos_obrigatorios = ["modelo", "escala", "preco", "marca_id"]
-    if any(campo not in dados for campo in campos_obrigatorios):
-        return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
-
     miniatura = db.session.get(Miniatura, miniatura_id)
 
     if miniatura is None:
         return jsonify({"erro": "Miniatura nao encontrada"}), 404
 
-    marca = db.session.get(Marca, dados["marca_id"])
+    dados = request.get_json(silent=True)
 
-    if marca is None:
-        return jsonify({"erro": "Marca nao encontrada"}), 404
+    erros = validar_miniatura(dados)
+    if erros:
+        return jsonify({"erros": erros}), 400
 
     miniatura.modelo = dados["modelo"]
     miniatura.escala = dados["escala"]
     miniatura.preco = dados["preco"]
-    miniatura.marca_id = marca.id
+    miniatura.marca_id = dados["marca_id"]
 
     db.session.commit()
 
