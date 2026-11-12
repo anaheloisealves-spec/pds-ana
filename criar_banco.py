@@ -8,9 +8,11 @@ with app.app_context():
     if Marca.query.first() is None:
         hot_wheels = Marca(nome="Hot Wheels", pais="EUA")
         kyosho = Marca(nome="Kyosho", pais="Japão")
+        autoart = Marca(nome="AutoArt", pais="Alemanha")
 
         db.session.add(hot_wheels)
         db.session.add(kyosho)
+        db.session.add(autoart)
         db.session.commit()
 
         db.session.add(Miniatura(
@@ -28,5 +30,8 @@ with app.app_context():
         ))
 
         db.session.commit()
+
+    # AutoArt fica sem miniatura nenhuma de proposito: serve para testar
+    # /marcas/<id>/miniaturas devolvendo lista vazia.
 
     print("Banco criado com sucesso.")
