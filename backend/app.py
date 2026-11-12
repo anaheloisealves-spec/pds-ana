@@ -100,15 +100,7 @@ def cadastrar_miniatura():
     db.session.add(nova_miniatura)
     db.session.commit()
 
-    resposta = {
-        "id": nova_miniatura.id,
-        "modelo": nova_miniatura.modelo,
-        "escala": nova_miniatura.escala,
-        "preco": nova_miniatura.preco,
-        "marca_id": nova_miniatura.marca_id
-    }
-
-    return jsonify(resposta), 201
+    return jsonify(nova_miniatura.to_dict()), 201
 
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["PUT"])
@@ -136,15 +128,7 @@ def atualizar_miniatura(miniatura_id):
 
     db.session.commit()
 
-    resposta = {
-        "id": miniatura.id,
-        "modelo": miniatura.modelo,
-        "escala": miniatura.escala,
-        "preco": miniatura.preco,
-        "marca_id": miniatura.marca_id
-    }
-
-    return jsonify(resposta), 200
+    return jsonify(miniatura.to_dict()), 200
 
 
 @app.route("/miniaturas/<int:miniatura_id>", methods=["DELETE"])
